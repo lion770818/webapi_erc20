@@ -1,0 +1,37 @@
+web:
+  mode: "debug"
+  port: "8888"
+mysql:
+  host: "127.0.0.1"
+  port: "3306"
+  database: wallet_eth
+  user: root
+  password: "1234"
+auth:
+  # jwt | redis
+  active: "jwt"
+  expireTime: "2h"
+  # active = jwt 时候生效
+  privateKey: "123456"
+redis:
+  host: "localhost"
+  port: "6379"
+  password: ""
+node:
+  url:
+    - "https://go.getblock.io/6af1ba9605a84856a894f1f5260a3bec"
+
+  confirm: 12  
+log:
+  # 环境 dev | prd
+  env: dev
+  # 输出日志路径
+  path: ./log/wallet_eth.log
+  # 日志格式 json|console (不填默认console)
+  encoding: console
+  # 单个文件最大尺寸，默认单位 M  (不填默认100)
+  max_size: 10
+  # 最大时间，默认单位 day (不填默认不删除备份)
+  max_age: 30
+  # 最多保留备份个数 (不填默认不删除备份)
+  max_backups: 30
