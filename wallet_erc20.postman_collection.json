@@ -1,0 +1,86 @@
+{
+	"info": {
+		"_postman_id": "93f935f8-d4a9-4e00-98db-6f6ee2b72737",
+		"name": "wallet_erc20",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "28936773"
+	},
+	"item": [
+		{
+			"name": "http://127.0.0.1:8888/v1/address",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"merchant_id\": \"OP_DEV\",\r\n    \"chain_type\": \"ETH\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://127.0.0.1:8888/v1/address",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8888",
+					"path": [
+						"v1",
+						"address"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "http://127.0.0.1:8888/v1//:address/balance/:cryptoType",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"merchant_id\": \"OP_DEV\",\r\n    \"chain_type\": \"ETH\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://127.0.0.1:8888/v1/0x263f97f36F46AC920C64DF74242CE98EaA0181aF/balance/ETH/?chain_type=ETH",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8888",
+					"path": [
+						"v1",
+						"0x263f97f36F46AC920C64DF74242CE98EaA0181aF",
+						"balance",
+						"ETH",
+						""
+					],
+					"query": [
+						{
+							"key": "chain_type",
+							"value": "ETH"
+						}
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
