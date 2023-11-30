@@ -33,7 +33,7 @@ type Redis struct {
 }
 type Node struct {
 	Url     []string `yaml:"url"`
-	Confirm string   `yaml:"confirm"`
+	Confirm int64    `yaml:"confirm"`
 }
 type Log struct {
 	Env        string `yaml:"env"`

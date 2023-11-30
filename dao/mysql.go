@@ -6,10 +6,7 @@ import (
 	"time"
 	"webapi_erc20/common/config"
 	"webapi_erc20/common/logs"
-	"webapi_erc20/entity"
 
-	//"github.com/jinzhu/gorm"
-	//_ "github.com/jinzhu/gorm/dialects/mysql"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
@@ -49,6 +46,10 @@ func Close() {
 	dbsql.Close()
 }
 
+func GetDB() *sql.DB {
+	return dbsql
+}
+
 func ConnectUrl(cfg *config.SugaredConfig) string {
 
 	dbURL := fmt.Sprintf(dbURLFmt, cfg.Mysql.User, cfg.Mysql.Password, cfg.Mysql.Host, cfg.Mysql.Port, cfg.Mysql.Database)
@@ -57,9 +58,11 @@ func ConnectUrl(cfg *config.SugaredConfig) string {
 }
 
 func CreateTable() {
-	//绑定模型
-	SqlSession.AutoMigrate(&entity.User{})
 
+	//創建表格
 	GetAddressInstance().CreateTable()
 	GetTokenInstance().CreateTable()
+	GetBlockHeightInstance().CreateTable()
+	GetTransactionInstance().CreateTable()
+	GetWithdrawInstance().CreateTable()
 }

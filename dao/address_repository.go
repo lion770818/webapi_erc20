@@ -45,12 +45,15 @@ func GetAddressInstance() *AddressRepository {
 // 創建table
 func (r *AddressRepository) CreateTable() {
 
+	exist := r.db.Migrator().HasTable(&Address{})
+	if !exist {
+		logs.Debugf("創建table")
+		r.db.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用戶錢包地址'").Create(&Address{})
+	}
+
 	// 自動遷移 schema
 	r.db.AutoMigrate(&Address{})
 
-	// 創建table
-	//r.db.Create(&Address{})
-	r.db.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用戶錢包地址'").Create(&Address{})
 }
 
 // 創建錢包地址

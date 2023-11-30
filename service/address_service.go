@@ -15,6 +15,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// 建立地址
 func Create(ctx context.Context, req entity.AddressCreateReq) (entity.AddressCreateResp, response.Status, error) {
 	newAddr, err := ethereum.GenerateAddress()
 	if err != nil {

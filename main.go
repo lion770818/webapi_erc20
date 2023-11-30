@@ -6,6 +6,7 @@ import (
 	"webapi_erc20/common/logs"
 	"webapi_erc20/dao"
 	"webapi_erc20/routes"
+	"webapi_erc20/service"
 
 	_ "github.com/jinzhu/gorm/dialects/mysql"
 )
@@ -27,6 +28,9 @@ func main() {
 
 	//建立table
 	dao.CreateTable()
+
+	//
+	service.RunListenBlock()
 
 	//注册路由
 	r := routes.SetRouter()

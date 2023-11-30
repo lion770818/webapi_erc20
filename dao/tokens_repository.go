@@ -2,6 +2,7 @@ package dao
 
 import (
 	"context"
+	"webapi_erc20/common/logs"
 
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
@@ -47,11 +48,14 @@ func GetTokenInstance() *TokensRepository {
 // 創建table
 func (r *TokensRepository) CreateTable() {
 
+	exist := r.db.Migrator().HasTable(&Tokens{})
+	if !exist {
+		logs.Debugf("創建table")
+		r.db.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='合約token'").Create(&Tokens{})
+	}
+
 	// 自動遷移 schema
 	r.db.AutoMigrate(&Tokens{})
-
-	// 創建table
-	r.db.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='合約token'").Create(&Tokens{})
 }
 
 func (repo *TokensRepository) GetByCryptoType(ctx context.Context, cryptoType string) (Tokens, error) {
