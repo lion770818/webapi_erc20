@@ -32,6 +32,7 @@ func Withdraw(ctx context.Context, req entity.WithdrawCreateReq) (entity.Withdra
 		return entity.WithdrawCreateResp{}, response.CodeCryptoNotFound, errors.New(response.CodeCryptoNotFound.Messages)
 	}
 
+	// 建立交易單
 	txHash, err := sendTransaction(ctx, req, tokens)
 	if err != nil {
 		if strings.Index(err.Error(), core.ErrInsufficientFundsForTransfer.Error()) > -1 {
@@ -45,11 +46,13 @@ func Withdraw(ctx context.Context, req entity.WithdrawCreateReq) (entity.Withdra
 		return entity.WithdrawCreateResp{}, response.CodeInternalError, fmt.Errorf("sendTransaction error: %s", err)
 	}
 
+	// 交易單寫入db
 	respStatus, err := create(ctx, req, txHash)
 	if err != nil {
 		return entity.WithdrawCreateResp{}, respStatus, fmt.Errorf("create error: %s", err)
 	}
 
+	// 組合回傳資訊
 	result := entity.WithdrawCreateResp{
 		TxHash: txHash,
 		Memo:   req.Memo,
@@ -65,6 +68,7 @@ func sendTransaction(ctx context.Context, req entity.WithdrawCreateReq, tokens d
 		return sendTransactionByETH(ctx, req, tokens)
 	}
 
+	// 送出erc20 token 交易單到鏈上
 	return sendTransactionByToken(ctx, req, tokens)
 }
 
@@ -137,6 +141,7 @@ func sendTransactionByToken(ctx context.Context, req entity.WithdrawCreateReq, t
 	return signedTx.Hash().String(), nil
 }
 
+// 交易單寫入db
 func create(ctx context.Context, req entity.WithdrawCreateReq, txHash string) (response.Status, error) {
 	withdraw := dao.Withdraw{
 		MerchantType: define.MerchantID2Type[req.MerchantID],
