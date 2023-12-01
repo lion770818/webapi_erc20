@@ -69,6 +69,7 @@ type EstimateTxFee struct {
 }
 
 func GetEstimateTxFee(ctx context.Context, client *ethclient.Client, token entity.Tokens) (EstimateTxFee, error) {
+	// 取得平均瓦斯價格
 	suggestGasPrice, err := client.SuggestGasPrice(ctx)
 	if err != nil {
 		return EstimateTxFee{}, fmt.Errorf("SuggestGasPrice error: %s", err)
@@ -150,6 +151,7 @@ func MakeSignedTx(ctx context.Context, client *ethclient.Client,
 func MakeSignNewTxTokens(ctx context.Context, client *ethclient.Client,
 	fromAddress, toAddress, privateKey, contractAddress string,
 	estimateTxFee EstimateTxFee, txAmount *big.Int) (*ethereumTypes.Transaction, error) {
+
 	fromAddr := common.HexToAddress(fromAddress)
 	toAddr := common.HexToAddress(toAddress)
 	contractAddr := common.HexToAddress(contractAddress)
@@ -158,6 +160,7 @@ func MakeSignNewTxTokens(ctx context.Context, client *ethclient.Client,
 	paddedToAddress := common.LeftPadBytes(toAddr.Bytes(), 32)
 	paddedAmount := common.LeftPadBytes(txAmount.Bytes(), 32)
 
+	// 打包合約資料
 	var txDate []byte
 	txDate = append(txDate, methodID...)
 	txDate = append(txDate, paddedToAddress...)

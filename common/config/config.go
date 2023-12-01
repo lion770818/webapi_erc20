@@ -20,6 +20,7 @@ type Mysql struct {
 	Database string `yaml:"database"`
 	User     string `yaml:"user"`
 	Password string `yaml:"password"`
+	LogMode  int    `yaml:"logMode"` // 1:silent  2:error 3:warn 4:info
 }
 type Auth struct {
 	Active     string `yaml:"active"`

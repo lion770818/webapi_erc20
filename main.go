@@ -29,7 +29,7 @@ func main() {
 	//建立table
 	dao.CreateTable()
 
-	//
+	//啟動監聽區塊排程
 	service.RunListenBlock()
 
 	//注册路由

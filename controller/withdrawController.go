@@ -41,24 +41,24 @@ func Withdraw(c *gin.Context) {
 }
 
 func GetTxHash(c *gin.Context) {
-	// ctx, cancelCtx := context.WithTimeout(context.Background(), utils.Time30S)
-	// defer cancelCtx()
+	ctx, cancelCtx := context.WithTimeout(context.Background(), utils.Time30S)
+	defer cancelCtx()
 
-	// var req entity.TransGetTxHashReq
-	// if respStatus, err := req.Parse(c); err != nil {
-	// 	logs.Errorf("req.Parse err:%v", err)
+	var req entity.TransGetTxHashReq
+	if respStatus, err := req.Parse(c); err != nil {
+		logs.Errorf("req.Parse err:%v", err)
 
-	// 	c.JSON(http.StatusBadRequest, response.NewError(respStatus))
-	// 	return
-	// }
+		c.JSON(http.StatusBadRequest, response.NewError(respStatus))
+		return
+	}
 
-	// result, respStatus, err := service.GetByTxHash(ctx, req)
-	// if err != nil {
-	// 	logs.Errorf("getByTxHash err:%v", err)
+	result, respStatus, err := service.GetByTxHash(ctx, req)
+	if err != nil {
+		logs.Errorf("getByTxHash err:%v", err)
 
-	// 	c.JSON(http.StatusBadRequest, response.NewError(respStatus))
-	// 	return
-	// }
+		c.JSON(http.StatusBadRequest, response.NewError(respStatus))
+		return
+	}
 
-	// c.JSON(http.StatusOK, response.NewSuccess(result))
+	c.JSON(http.StatusOK, response.NewSuccess(result))
 }

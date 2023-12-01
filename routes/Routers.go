@@ -18,7 +18,7 @@ func SetRouter() *gin.Engine {
 		// 錢包交易
 		v1.POST("/withdraw", controller.Withdraw)
 		// 取得交易清單明細
-		//v1.GET("/tx/:txHash", controller.GetTxHash)
+		v1.GET("/tx/:txHash", controller.GetTxHash)
 
 	}
 

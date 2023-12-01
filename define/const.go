@@ -35,8 +35,8 @@ var (
 )
 
 const (
-	TxTypeDeposit = iota + 1
-	TxTypeWithdraw
+	TxTypeDeposit  = iota + 1 // 儲值
+	TxTypeWithdraw            // 提款
 )
 
 const (

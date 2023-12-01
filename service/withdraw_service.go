@@ -16,11 +16,13 @@ import (
 	"gorm.io/gorm"
 )
 
+// 轉帳
 func Withdraw(ctx context.Context, req entity.WithdrawCreateReq) (entity.WithdrawCreateResp, response.Status, error) {
 	if ethereum.IsValidateAddressFail(req.FromAddress) || ethereum.IsValidateAddressFail(req.ToAddress) {
 		return entity.WithdrawCreateResp{}, response.CodeAddressInvalidLength, errors.New(response.CodeAddressInvalidLength.Messages)
 	}
 
+	// 取得db內token資訊
 	tokens, err := dao.GetTokenInstance().GetByCryptoType(ctx, req.CryptoType)
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return entity.WithdrawCreateResp{}, response.CodeInternalError, fmt.Errorf("TokensUseCase.GetByCryptoType error: %s", err)
@@ -56,14 +58,17 @@ func Withdraw(ctx context.Context, req entity.WithdrawCreateReq) (entity.Withdra
 	return result, response.Status{}, nil
 }
 
+// 建立交易單
 func sendTransaction(ctx context.Context, req entity.WithdrawCreateReq, tokens dao.Tokens) (string, error) {
 	if req.CryptoType == define.CryptoType {
+		//送出eth交易單到鏈上
 		return sendTransactionByETH(ctx, req, tokens)
 	}
 
 	return sendTransactionByToken(ctx, req, tokens)
 }
 
+// 送出eth交易單到鏈上
 func sendTransactionByETH(ctx context.Context, req entity.WithdrawCreateReq, tokens dao.Tokens) (string, error) {
 	client, err := ethereum.GetClientNoCtx()
 	if err != nil {
@@ -98,12 +103,14 @@ func sendTransactionByETH(ctx context.Context, req entity.WithdrawCreateReq, tok
 	return signedTx.Hash().String(), nil
 }
 
+// 送出erc20 token 交易單到鏈上
 func sendTransactionByToken(ctx context.Context, req entity.WithdrawCreateReq, tokens dao.Tokens) (string, error) {
 	client, err := ethereum.GetClientNoCtx()
 	if err != nil {
 		return "", fmt.Errorf("ethereum.GetClientNoCtx error: %s", err)
 	}
 
+	// 獲取平均燃氣價格
 	estimateTxFee, err := ethereum.GetEstimateTxFee(ctx, client, tokens)
 	if err != nil {
 		return "", fmt.Errorf("ethereum.GetEstimateTxFee error: %s", err)

@@ -115,10 +115,17 @@ func GetByTxHash(ctx context.Context, req entity.TransGetTxHashReq) (entity.Tran
 
 func RunListenBlock() {
 	c := cron.New()
-	c.AddFunc("*/1 * * * *", runListenBlock)
+	c.AddFunc("*/5 * * * *", runListenBlock) //每5分鐘觸發一次  (免費節點省著用) 監聽鏈上區塊
+
+	c.AddFunc("*/5 * * * *", RunTransactionConfirm()) //每5分鐘觸發一次		檢核交易單
+
+	//c.AddFunc("*/5 * * * *", RunTransactionNotify()) //每5分鐘觸發一次	通知
+
 	c.Start()
+
 }
 
+// 監聽鏈上區塊
 func runListenBlock() {
 
 	uid, err := uuid.NewV4()
@@ -137,13 +144,14 @@ func runListenBlock() {
 		return
 	}
 
+	// 檢查是否有新的區塊
 	blockHeight, isHaveNewBlock, err := checkNewBlock(ctx, client)
 	if err != nil {
 		logs.Debugf("checkNewBlock error: %s", err)
 		return
 	}
 
-	logs.Debugf("blockHeight:%v, isHaveNewBlock:%v", blockHeight, isHaveNewBlock)
+	//logs.Debugf("blockHeight:%v, isHaveNewBlock:%v", blockHeight, isHaveNewBlock)
 
 	// 注意: 處理遞歸終止條件
 	if !isHaveNewBlock {
@@ -153,10 +161,11 @@ func runListenBlock() {
 	blockIsFail := false
 	var trans []dao.Transaction
 
+	// 獲得區塊資訊
 	block, err := ethereum.GetBlockByNumber(ctx, client, blockHeight)
 	if err != nil {
 
-		logs.Debugf("ethereum.GetBlockByNumber error: %s", err)
+		logs.Debugf("ethereum.GetBlockByNumber error: %v", err)
 
 		if strings.Index(err.Error(), ethereum.ErrBlockFailed) > -1 {
 			// sometimes there are bad blocks in the chain that require special judgment
@@ -187,19 +196,21 @@ func runListenBlock() {
 	runListenBlock()
 }
 
+// 檢查是否有新的區塊
 func checkNewBlock(ctx context.Context, client *ethclient.Client) (int64, bool, error) {
-	logs.Debugf("checkNewBlock")
 
+	// 鏈上最新高度
 	latestHeight, err := ethereum.GetBlockNumberLatest(ctx, client)
 	if err != nil {
 		return 0, false, fmt.Errorf("ethereum.GetBlockNumberLatest error: %s", err)
 	}
 
+	// db 紀錄的高度
 	dbBlockHeight, err := dao.GetBlockHeightInstance().Get(ctx)
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return 0, false, fmt.Errorf("BlockHeightRepo.Get error: %s", err)
 	}
-	logs.Debugf("latestHeight:%v, dbBlockHeight:%v", latestHeight, dbBlockHeight)
+	//logs.Debugf("latestHeight:%v, dbBlockHeight:%v", latestHeight, dbBlockHeight)
 
 	if err == gorm.ErrRecordNotFound {
 		dbBlockHeight = dao.BlockHeight{
@@ -218,15 +229,15 @@ func checkNewBlock(ctx context.Context, client *ethclient.Client) (int64, bool, 
 	// 注意: 用 <= 判斷原因是，更新邏輯是 blockHeight + 1
 	if blockHeight <= latestHeight {
 		isHaveNewBlock = true
+		//logs.Debugf("有新的區塊 latestHeight:%v, isHaveNewBlock:%v", latestHeight, isHaveNewBlock)
 	}
-
-	logs.Debugf("latestHeight:%v, isHaveNewBlock:%v", latestHeight, isHaveNewBlock)
 
 	return blockHeight, isHaveNewBlock, nil
 }
 
 // 建立轉帳單
 func makeTransaction(ctx context.Context, client *ethclient.Client, block *ethereumTypes.Block) ([]dao.Transaction, error) {
+	// 取得鏈上id
 	networkID, err := ethereum.GetNetworkID(ctx, client)
 	if err != nil {
 		return nil, fmt.Errorf("ethereum.GetNetworkID error: %s", err)
@@ -257,6 +268,7 @@ func makeTransaction(ctx context.Context, client *ethclient.Client, block *ether
 func makeTransactionByETH(ctx context.Context, block *ethereumTypes.Block, networkID *big.Int) ([]dao.Transaction, error) {
 	transaction := make([]dao.Transaction, 0, 0)
 
+	// 掃描獲取区块交易Tx列表
 	for _, tx := range block.Transactions() {
 		if tx.To() == nil {
 			// 注意: == nil 代表為 Contract 地址，不處理略過
@@ -269,6 +281,7 @@ func makeTransactionByETH(ctx context.Context, block *ethereumTypes.Block, netwo
 			continue
 		}
 
+		// 獲取來源地址
 		fromAddr, err := getETHFromAddr(ctx, tx, networkID)
 		if err != nil {
 			if err == errTxChainIDNotEqualNetworkID {
@@ -277,15 +290,17 @@ func makeTransactionByETH(ctx context.Context, block *ethereumTypes.Block, netwo
 
 			return nil, fmt.Errorf("getETHFromAddr error: %s", err)
 		}
-
+		// 獲取目的地址
 		toAddr := tx.To().Hex()
 
+		// 檢查 來源/目的 地址 是否是我方生產
 		addressMap, err := getAddressMap(ctx, fromAddr, toAddr)
 		if err != nil {
 			// 注意: 代表此地址，不是服務產生過的，略過不處理
 			continue
 		}
 
+		// 檢查此 txhash 交易單是否是我方生產
 		isNewTransaction, err := isNewTransaction(ctx, tx.Hash().String())
 		if err != nil {
 			return nil, fmt.Errorf("isNewTransaction error: %s", err)
@@ -295,11 +310,13 @@ func makeTransactionByETH(ctx context.Context, block *ethereumTypes.Block, netwo
 			continue
 		}
 
+		// 根據來源目的地址 檢查是 充幣 還是 提幣
 		txType, err := getTxType(addressMap, fromAddr, toAddr)
 		if err != nil {
 			return nil, fmt.Errorf("geTxType error: %s", err)
 		}
 
+		// 建立交易單
 		trans := dao.Transaction{
 			TxType:           txType,
 			BlockHeight:      int64(block.NumberU64()),
@@ -330,11 +347,13 @@ func makeTransactionByETH(ctx context.Context, block *ethereumTypes.Block, netwo
 
 // token轉帳
 func makeTransactionByTokens(ctx context.Context, client *ethclient.Client, block *ethereumTypes.Block) ([]dao.Transaction, error) {
+	// 讀取db內所有token (含合約地址和合約abi)
 	contractAddress, err := GetContractAddress(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("TokensUseCase.GetContractAddress error: %s", err)
 	}
 
+	// 讀取事件日誌
 	blockHeight := int64(block.NumberU64())
 	tokensLogs, err := ethereum.GetTransactionByTokens(ctx, client, blockHeight, contractAddress)
 	if err != nil {
@@ -349,6 +368,7 @@ func makeTransactionByTokens(ctx context.Context, client *ethclient.Client, bloc
 	logTransferSigHash := getLogTransferSigHash()
 	transaction := make([]dao.Transaction, 0, 0)
 
+	// 檢查鏈上交易 哪一些是 token合約
 	for _, vLog := range tokensLogs {
 		switch vLog.Topics[0].Hex() {
 		case logTransferSigHash.Hex():
@@ -426,6 +446,7 @@ func makeTransactionByTokens(ctx context.Context, client *ethclient.Client, bloc
 	return transaction, nil
 }
 
+// 檢查此 txhash 交易單是否是我方生產
 func isNewTransaction(ctx context.Context, txHash string) (bool, error) {
 	_, err := dao.GetTransactionInstance().GetByTxHash(ctx, txHash)
 	if err != nil && err != gorm.ErrRecordNotFound {
@@ -481,27 +502,30 @@ func getGasPrice(tx *ethereumTypes.Transaction, baseFee *big.Int) decimal.Decima
 	return decimal.Zero
 }
 
+// 檢查 來源/目的 地址 是否是我方生產
 func getAddressMap(ctx context.Context, fromAddr, toAddr string) (map[string]struct{}, error) {
 	isExistFromAddress, isExistToAddress := false, false
 	address2Struct := make(map[string]struct{})
 
+	// 檢查是否db內有儲存一份
 	fromAddress, err := GetByAddress(ctx, fromAddr)
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, fmt.Errorf("AddressUseCase.GetByAddress by fromAddress error: %s", err)
 	}
 
 	if fromAddress.ID > 0 {
-		isExistFromAddress = true
+		isExistFromAddress = true // 是我方生產的地址
 		address2Struct[fromAddr] = struct{}{}
 	}
 
+	// 檢查是否db內有儲存一份
 	toAddress, err := GetByAddress(ctx, toAddr)
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, fmt.Errorf("AddressUseCase.GetByAddress by toAddress error: %s", err)
 	}
 
 	if toAddress.ID > 0 {
-		isExistToAddress = true
+		isExistToAddress = true // 是我方生產的地址
 		address2Struct[toAddr] = struct{}{}
 	}
 
@@ -513,14 +537,16 @@ func getAddressMap(ctx context.Context, fromAddr, toAddr string) (map[string]str
 }
 
 func getTxType(address2Struct map[string]struct{}, fromAddr, toAddr string) (int, error) {
+	// 檢查 來我是我方的地址
 	_, ok := address2Struct[fromAddr]
 	if ok {
-		return define.TxTypeWithdraw, nil
+		return define.TxTypeWithdraw, nil // 提款
 	}
 
+	// 檢查 目的是我方的地址
 	_, ok = address2Struct[toAddr]
 	if ok {
-		return define.TxTypeDeposit, nil
+		return define.TxTypeDeposit, nil // 存款
 	}
 
 	return 0, errors.New("txType not found")
@@ -555,6 +581,7 @@ func getAmount(vLogData []byte, tokens dao.Tokens) (decimal.Decimal, error) {
 	return amount, nil
 }
 
+// 更新db區塊計數器
 func createTransAndUpdateBlockHeight(ctx context.Context, blockHeight int64, trans []dao.Transaction) error {
 
 	tx := dao.SqlSession.Begin()
@@ -592,6 +619,7 @@ func createTransAndUpdateBlockHeight(ctx context.Context, blockHeight int64, tra
 	return nil
 }
 
+// 檢查 區塊高度確認數 是否已經大於 12
 func RunTransactionConfirm() cron.FuncJob {
 	return func() {
 		uid, err := uuid.NewV4()
@@ -610,12 +638,14 @@ func RunTransactionConfirm() cron.FuncJob {
 			return
 		}
 
+		// 確認交易區塊數
 		trans, err := getTransactionConfirm(ctx, client)
 		if err != nil {
 			logs.Debugf("getTransactionConfirm error: %s", err)
 			return
 		}
 
+		// 找到訂單, 將訂單狀態設定完成, 並且準備通知第三方
 		err = runTransactionConfirm(ctx, client, trans)
 		if err != nil {
 			logs.Debugf("runTransactionConfirm error: %s", err)
@@ -624,13 +654,16 @@ func RunTransactionConfirm() cron.FuncJob {
 	}
 }
 
+// 確認交易區塊數
 func getTransactionConfirm(ctx context.Context, client *ethclient.Client) ([]dao.Transaction, error) {
 	latestHeight, err := ethereum.GetBlockNumberLatest(ctx, client)
 	if err != nil {
 		return nil, fmt.Errorf("ethereum.GetBlockNumberLatest error: %v", err)
 	}
 
+	// 目前幾個區塊確認數  =  最新區塊高度 - config設定區塊高度(12)
 	blockHeight := latestHeight - config.GetConfig().Node.Confirm
+	// 跟DB目前交易單的區塊確認數做比對, 如果大於 config Node.Confirm, 則判定此交易成功
 	trans, err := dao.GetTransactionInstance().GetListByStatusAndBlockHeight(ctx, define.TxStatusWaitConfirm, 20, blockHeight)
 	if err != nil {
 		return nil, fmt.Errorf("TransRepo.GetListByStatusAndBlockHeight error: %s", err)
@@ -639,7 +672,9 @@ func getTransactionConfirm(ctx context.Context, client *ethclient.Client) ([]dao
 	return trans, nil
 }
 
+// 找到訂單, 將訂單狀態設定完成, 並且準備通知第三方
 func runTransactionConfirm(ctx context.Context, client *ethclient.Client, trans []dao.Transaction) error {
+
 	for i := range trans {
 		v := trans[i]
 
@@ -655,11 +690,12 @@ func runTransactionConfirm(ctx context.Context, client *ethclient.Client, trans 
 			continue
 		}
 
+		// 設定訂單 完成 / 失敗
 		v.Status = define.TxStatusSuccess
 		if receipt.Status != ethereum.TransactionStatusSuccess {
 			v.Status = define.TxStatusFail
 		}
-
+		// 準備通知第三方, 此交易完成
 		v.NotifyStatus = define.TxNotifyStatusWaitNotify
 
 		gasUsed := int64(receipt.GasUsed)

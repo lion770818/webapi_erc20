@@ -9,6 +9,7 @@ import (
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 var SqlSession *gorm.DB
@@ -21,8 +22,22 @@ const (
 
 func InitMySql(cfg *config.SugaredConfig) (err error) {
 
+	var mode logger.LogLevel
+	switch cfg.Mysql.LogMode {
+	case 4:
+		mode = logger.Info
+	case 2:
+		mode = logger.Error
+	case 3:
+		mode = logger.Warn
+	default:
+		mode = logger.Silent // 0或其他  这里设置为 Silent 表示关闭 GORM 的日志输出
+	}
+
 	dbURL := fmt.Sprintf(dbURLFmt, cfg.Mysql.User, cfg.Mysql.Password, cfg.Mysql.Host, cfg.Mysql.Port, cfg.Mysql.Database)
-	db, err := gorm.Open(mysql.Open(dbURL), &gorm.Config{})
+	db, err := gorm.Open(mysql.Open(dbURL), &gorm.Config{
+		Logger: logger.Default.LogMode(mode),
+	})
 
 	if err != nil {
 		panic(err)
